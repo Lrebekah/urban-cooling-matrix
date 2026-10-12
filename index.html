@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Urban Cooling Decision Matrix</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      color: black;
+      margin: 20px;
+      background-color: #ffffff;
+    }
+
+    h1 {
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      color: #2C3E50;
+      font-size: 32px;
+      margin-top: 0;
+    }
+
+    h2 {
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      color: #2C3E50;
+      font-size: 25px;
+      margin-top: 40px;
+      border-bottom: 3px solid #1A5276;
+      padding-bottom: 5px;
+    }
+
+    h3 {
+      font-family: Arial, sans-serif;
+      color: #1A5276;
+      font-size: 20px;
+      margin-top: 25px;
+      margin-bottom: 8px;
+    }
+
+    /* ---- Page layout: content on the left, sticky map on the right ---- */
+    .page {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .content {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .map-column {
+      flex: 0 0 42%;
+      position: sticky;
+      top: 10px;
+      height: calc(100vh - 30px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .map-header {
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .map-header select {
+      font-size: 15px;
+      padding: 3px;
+      max-width: 75%;
+    }
+
+    #map {
+      flex: 1 1 auto;
+      min-height: 300px;
+      border: 1px solid #7F8C8D;
+      border-radius: 4px;
+    }
+
+    .map-unavailable {
+      padding: 12px;
+      font-size: 15px;
+      color: #691630;
+    }
+
+    .map-note {
+      font-size: 12px;
+      color: #7F8C8D;
+      margin: 6px 0 0 0;
+    }
+
+    #mapLegend {
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .legend-title {
+      font-weight: bold;
+      color: #2C3E50;
+      margin-bottom: 4px;
+    }
+
+    .legend-bar {
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid #7F8C8D;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #2C3E50;
+      margin: 2px 0 6px 0;
+    }
+
+    .legend-swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 1px solid #5D6D7E;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    .legend-top {
+      background: #ffffff;
+      border: 3px solid #000000;
+      width: 10px;
+      height: 10px;
+      margin-left: 8px;
+    }
+
+    @media (max-width: 1000px) {
+      .page {
+        flex-direction: column;
+      }
+      .map-column {
+        position: static;
+        flex: none;
+        width: 100%;
+        height: 480px;
+        order: -1;
+      }
+    }
+
+    /* ---- Tables ---- */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 20px;
+      background-color: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      font-size: 15px;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid #7F8C8D;
+    }
+
+    th {
+      background-color: #1A5276;
+      color: white;
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+    }
+
+    th:hover {
+      background-color: #2C3E50;
+    }
+
+    tr:nth-child(even) {
+      background-color: #F9E79F;
+    }
+
+    tr:hover {
+      background-color: #E67E22;
+      color: white;
+    }
+
+    .top-score {
+      background-color: #691630;
+      color: white;
+      font-weight: bold;
+    }
+
+    /* ---- Bar charts ---- */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .bar-label {
+      width: 220px;
+      font-size: 15px;
+      flex-shrink: 0;
+      padding-right: 10px;
+    }
+
+    .bar-container {
+      flex: 1;
+      background-color: #F9E79F;
+      border-radius: 4px;
+      overflow: hidden;
+      height: 26px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background-color: #1A5276;
+      display: flex;
+      align-items: center;
+      transition: width 0.3s ease;
+    }
+
+    .bar-value {
+      width: 55px;
+      text-align: right;
+      font-weight: bold;
+      padding-left: 10px;
+      flex-shrink: 0;
+      color: #2C3E50;
+    }
+
+    .chart-section {
+      margin-bottom: 30px;
+    }
+
+    .multi-score-row {
+      background-color: #F9E79F;
+      border-left: 6px solid #691630;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .multi-score-count {
+      color: #691630;
+      font-weight: bold;
+    }
+
+    .multi-score-note {
+      color: #7F8C8D;
+      font-size: 14px;
+      margin-top: -10px;
+      margin-bottom: 15px;
+    }
+
+    /* ---- Weight sliders ---- */
+    .weights-intro {
+      font-size: 16px;
+      color: #2C3E50;
+    }
+
+    .weight-panel {
+      background-color: #f4f6f7;
+      border: 1px solid #d5d8dc;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+    }
+
+    .weight-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .weight-name {
+      width: 240px;
+      font-size: 15px;
+      flex-shrink: 0;
+      padding-right: 10px;
+    }
+
+    .weight-driver {
+      display: block;
+      font-size: 12px;
+      color: #7F8C8D;
+    }
+
+    .weight-row input[type=range] {
+      flex: 1;
+      accent-color: #1A5276;
+    }
+
+    .weight-pct {
+      width: 55px;
+      text-align: right;
+      font-weight: bold;
+      color: #2C3E50;
+    }
+
+    .weight-note {
+      font-size: 14px;
+      color: #7F8C8D;
+      margin: 4px 0 8px 0;
+    }
+
+    .reset-btn {
+      background-color: #1A5276;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .reset-btn:hover {
+      background-color: #2C3E50;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="content">
+      <h1>Urban Cooling Decision Matrix</h1>
+    <!-- Lowest Priority Sites page hidden for now. Restore by removing this comment: <p><a href="lowest.html">View Lowest Priority Sites →</a></p> -->
+
+      <h2>Combined Priority Sites</h2>
+      <p>Sites appearing in the top 5 for more than one intervention, combining parcel-level and building-level scores by matching address. This summary updates as you adjust the weights below.</p>
+      <p class="multi-score-note">Note: matched by normalized address; a small number of sites may not match due to address formatting differences between the parcel and building data sources.</p>
+      <div id="multiScore_Combined"></div>
+
+      <h2>Top 5 Candidates by Intervention</h2>
+      <p class="weights-intro">Drag any slider to change how much a factor counts toward that intervention's score. The map follows whichever slider you move, and the menu above the map lets you show any other score. Weights are relative: the tool rescales them so they always add up to 100%, and the percentage beside each slider shows its current share. These weights use standard, widely available GIS layers that relate to, but do not precisely measure, the four thermal comfort drivers in the full report (radiant load, air temperature, humidity/evapotranspiration and wind/ventilation). Ownership is a feasibility factor, not a thermal driver. The tool favors replicability across municipalities over detailed microclimate modeling.</p>
+      <button class="reset-btn" onclick="resetAllWeights()">Reset all weights to AHP defaults</button>
+
+      <div class="chart-section">
+        <h3>Vegetation/Shade (Street Trees, Playgrounds)</h3>
+        <div id="weights_VegShade_Score"></div>
+        <div id="chart_VegShade"></div>
+
+        <h3>Surface/Pavement (Cool Pavement, Walls, Tracks)</h3>
+        <div id="weights_SurfacePavement_Score"></div>
+        <div id="chart_SurfacePavement"></div>
+
+        <h3>Stormwater (Bioretention, Permeable Pavement)</h3>
+        <div id="weights_Stormwater_Score"></div>
+        <div id="chart_Stormwater"></div>
+
+        <h3>Canopy-Need (Shaded Play Spaces, Sails)</h3>
+        <div id="weights_CanopyNeed_Score"></div>
+        <div id="chart_CanopyNeed"></div>
+
+        <h3>Built-Up Need (Breeze Blocks, Splash Pads, Misting, Parklets)</h3>
+        <div id="weights_BuiltUpNeed_Score"></div>
+        <div id="chart_BuiltUpNeed"></div>
+
+        <h3>Cool Roof Coatings</h3>
+        <div id="weights_Roof_Score"></div>
+        <div id="chart_Roof"></div>
+
+        <h3>Green Roofs</h3>
+        <p class="weight-note">Uses the Cool Roof Coatings weights above, plus slope and footprint eligibility.</p>
+        <div id="chart_GreenRoof"></div>
+
+        <h3>Evaporative Cooling Walls</h3>
+        <div id="weights_EvapCoolingWall_Score"></div>
+        <div id="chart_EvapCoolingWall"></div>
+
+        <h3>Bus Stop Shade Structures</h3>
+        <p class="weight-note">Ranked by surface temperature among stops with 40 or more average daily boardings (City eligibility standard). No adjustable weights.</p>
+        <div id="chart_BusStop"></div>
+      </div>
+
+      <h2>Parcels</h2>
+      <table id="parcelsTable" border="1">
+        <thead>
+          <tr>
+            <th>Address</th>
+            <th onclick="sortParcels(1)">Ownership</th>
+            <th onclick="sortParcels(2)">Vegetation/Shade</th>
+            <th onclick="sortParcels(3)">Surface/Pavement</th>
+            <th onclick="sortParcels(4)">Stormwater</th>
+            <th onclick="sortParcels(5)">Canopy-Need</th>
+            <th onclick="sortParcels(6)">Built-Up Need</th>
+          </tr>
+        </thead>
+        <tbody id="parcelsBody"></tbody>
+      </table>
+
+      <h2>Buildings</h2>
+      <table id="buildingsTable" border="1">
+        <thead>
+          <tr>
+            <th>Address</th>
+            <th onclick="sortBuildings(1)">Ownership</th>
+            <th onclick="sortBuildings(2)">Roof (Coating)</th>
+            <th onclick="sortBuildings(3)">Green Roof</th>
+            <th onclick="sortBuildings(4)">Evaporative Cooling Wall</th>
+          </tr>
+        </thead>
+        <tbody id="buildingsBody"></tbody>
+      </table>
+
+      <h2>Bus Stops</h2>
+      <table id="busStopsTable" border="1">
+        <thead>
+          <tr>
+            <th>Stop Name</th>
+            <th>Cross Street</th>
+            <th onclick="sortBusStops(1)">Avg Daily Boardings</th>
+            <th onclick="sortBusStops(2)">Eligible</th>
+            <th onclick="sortBusStops(3)">Score</th>
+          </tr>
+        </thead>
+        <tbody id="busStopsBody"></tbody>
+      </table>
+    </div>
+
+    <div class="map-column">
+      <div class="map-header">
+        <label for="mapScoreSelect">Map showing:</label>
+        <select id="mapScoreSelect"></select>
+      </div>
+      <div id="map"></div>
+      <div id="mapLegend"></div>
+      <p class="map-note">Click a site for details. Colors are scaled to the current highest and lowest score, so the map always shows relative priority. Sites with a black outline are the current top 5. The basemap needs an internet connection.</p>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // =====================================================
+    // CONFIG: the scoring models and their AHP default weights
+    // =====================================================
+    const INPUT_LABELS = {
+      LST_norm: 'Surface temperature',
+      LST_Parcel_norm: 'Surface temperature (parcel)',
+      LST_Max_norm: 'Peak surface temperature',
+      NDBI_norm: 'Built-up / impervious extent',
+      NDBI_Max_norm: 'Peak built-up extent',
+      NDVI_norm: 'Vegetation health',
+      Canopy_Gap_norm: 'Canopy gap',
+      Ownership_norm: 'Public ownership'
+    };
+
+    const DRIVER_NOTES = {
+      LST_norm: 'relates to Radiant Load',
+      LST_Parcel_norm: 'relates to Radiant Load',
+      LST_Max_norm: 'relates to Radiant Load (peak value)',
+      NDBI_norm: 'relates to Air Temperature',
+      NDBI_Max_norm: 'relates to Air Temperature (peak value)',
+      NDVI_norm: 'relates to Humidity / Evapotranspiration',
+      Canopy_Gap_norm: 'relates to Humidity / Evapotranspiration',
+      Ownership_norm: 'Feasibility, not a thermal driver'
+    };
+
+    const MODELS = {
+      parcels: {
+        VegShade_Score: {
+          panelId: 'weights_VegShade_Score',
+          defaults: { Canopy_Gap_norm: 0.56, Ownership_norm: 0.25, LST_norm: 0.10, NDVI_norm: 0.10 }
+        },
+        SurfacePavement_Score: {
+          panelId: 'weights_SurfacePavement_Score',
+          defaults: { LST_norm: 0.56, Ownership_norm: 0.25, NDVI_norm: 0.10, Canopy_Gap_norm: 0.09 }
+        },
+        Stormwater_Score: {
+          panelId: 'weights_Stormwater_Score',
+          defaults: { NDBI_norm: 0.56, Ownership_norm: 0.26, NDVI_norm: 0.12, Canopy_Gap_norm: 0.06 }
+        },
+        CanopyNeed_Score: {
+          panelId: 'weights_CanopyNeed_Score',
+          defaults: { Canopy_Gap_norm: 0.64, LST_norm: 0.26, Ownership_norm: 0.10 }
+        },
+        BuiltUpNeed_Score: {
+          panelId: 'weights_BuiltUpNeed_Score',
+          defaults: { LST_Max_norm: 0.64, NDBI_Max_norm: 0.26, Ownership_norm: 0.10 }
+        }
+      },
+      buildings: {
+        Roof_Score: {
+          panelId: 'weights_Roof_Score',
+          defaults: { LST_norm: 0.83, Ownership_norm: 0.17 },
+          note: 'These weights also drive the Green Roof score. Green roofs additionally require a footprint over 5,000 sq ft and are discounted by roof slope.'
+        },
+        EvapCoolingWall_Score: {
+          panelId: 'weights_EvapCoolingWall_Score',
+          defaults: { LST_Parcel_norm: 0.56, Ownership_norm: 0.25, NDVI_norm: 0.10, Canopy_Gap_norm: 0.09 },
+          note: 'Walls without a favorable solar orientation are discounted by a fixed factor of 0.6 (not adjustable here).'
+        }
+      }
+    };
+
+    const PARCEL_CHARTS = {
+      VegShade_Score: 'chart_VegShade',
+      SurfacePavement_Score: 'chart_SurfacePavement',
+      Stormwater_Score: 'chart_Stormwater',
+      CanopyNeed_Score: 'chart_CanopyNeed',
+      BuiltUpNeed_Score: 'chart_BuiltUpNeed'
+    };
+
+    const BUILDING_CHARTS = {
+      Roof_Score: 'chart_Roof',
+      GreenRoof_Score: 'chart_GreenRoof',
+      EvapCoolingWall_Score: 'chart_EvapCoolingWall'
+    };
+
+    const PARCEL_SCORE_FIELDS = Object.keys(PARCEL_CHARTS);
+    const BUILDING_SCORE_FIELDS = Object.keys(BUILDING_CHARTS);
+
+    const parcelFieldLabels = {
+      VegShade_Score: 'Parcel: Vegetation/Shade',
+      SurfacePavement_Score: 'Parcel: Surface/Pavement',
+      Stormwater_Score: 'Parcel: Stormwater',
+      CanopyNeed_Score: 'Parcel: Canopy-Need',
+      BuiltUpNeed_Score: 'Parcel: Built-Up Need'
+    };
+
+    const buildingFieldLabels = {
+      Roof_Score: 'Building: Cool Roof Coating',
+      GreenRoof_Score: 'Building: Green Roof',
+      EvapCoolingWall_Score: 'Building: Evaporative Cooling Wall'
+    };
+
+    // =====================================================
+    // CONFIG: what the map can show, and how each score is colored
+    // (color families match the map symbology guide for the presentation)
+    // =====================================================
+    const RAMPS = {
+      green: ['#E8F5E1', '#74C476', '#005A32'],
+      warm: ['#F9E79F', '#E67E22', '#691630'],
+      blue: ['#DEEBF7', '#6BAED6', '#08306B'],
+      lime: ['#FFFFCC', '#D9F0A3', '#41AB5D'],
+      purple: ['#EFEDF5', '#9E9AC8', '#54278F']
+    };
+
+    const NA_COLOR = '#B0B7BB';
+
+    const MAP_SCORES = {
+      VegShade_Score: { group: 'parcels', label: 'Vegetation/Shade (street trees, playgrounds)', ramp: RAMPS.green, naLabel: 'No score' },
+      SurfacePavement_Score: { group: 'parcels', label: 'Surface/Pavement (cool pavement, walls, tracks)', ramp: RAMPS.warm, naLabel: 'No score' },
+      Stormwater_Score: { group: 'parcels', label: 'Stormwater (bioretention, permeable pavement)', ramp: RAMPS.blue, naLabel: 'No score' },
+      CanopyNeed_Score: { group: 'parcels', label: 'Canopy-Need (shaded play spaces, sails)', ramp: RAMPS.lime, naLabel: 'No score' },
+      BuiltUpNeed_Score: { group: 'parcels', label: 'Built-Up Need (breeze blocks, splash pads, misting, parklets)', ramp: RAMPS.purple, naLabel: 'No score' },
+      Roof_Score: { group: 'buildings', label: 'Cool Roof Coatings', ramp: RAMPS.warm, naLabel: 'No score' },
+      GreenRoof_Score: { group: 'buildings', label: 'Green Roofs', ramp: RAMPS.green, naLabel: 'Not eligible (score 0)', zeroIsNA: true },
+      EvapCoolingWall_Score: { group: 'buildings', label: 'Evaporative Cooling Walls', ramp: RAMPS.warm, naLabel: 'Not applicable (no parcel match)' },
+      BusStop_Score: { group: 'busstops', label: 'Bus Stop Shade Structures', ramp: RAMPS.warm, naLabel: 'Not eligible (under 40 boardings/day)' }
+    };
+
+    // =====================================================
+    // Helper functions
+    // =====================================================
+    function formatScore(value) {
+      return (value === null || value === undefined) ? 'N/A' : value.toFixed(2);
+    }
+
+    function formatAddress(props) {
+      // Buildings are linked to the parcel they sit on (see "Linking buildings to parcels" below).
+      // Use that parcel's address when there is one, otherwise the address copied during the GIS join.
+      if (props._siteAddress) return props._siteAddress;
+      return [props.ST_NUM, props.ST_ALPHA, props.ST_DIR, props.ST_NAME, props.ST_TYPE]
+        .map(part => (part || '').trim())
+        .filter(part => part.length > 0)
+        .join(' ');
+    }
+
+    function normalizeAddress(addr) {
+      return (addr || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    }
+
+    function getMax(features, field) {
+      const values = features
+        .map(f => f.properties[field])
+        .filter(v => v !== null && v !== undefined);
+      return values.length ? Math.max(...values) : null;
+    }
+
+    function computeMaxes(features, fields) {
+      const result = {};
+      fields.forEach(f => { result[f] = getMax(features, f); });
+      return result;
+    }
+
+    function scoreCell(value, max) {
+      const isTop = value !== null && value !== undefined && value === max;
+      return `<td class="${isTop ? 'top-score' : ''}">${formatScore(value)}</td>`;
+    }
+
+    function compareBy(field, ascending) {
+      return (a, b) => {
+        const valA = a.properties[field];
+        const valB = b.properties[field];
+        const aNull = (valA === null || valA === undefined);
+        const bNull = (valB === null || valB === undefined);
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
+        if (typeof valA === 'string') {
+          return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return ascending ? valA - valB : valB - valA;
+      };
+    }
+
+    // Keeps one building per address (the best or worst for the given field)
+    function consolidateByAddress(features, field, addressFn, mode) {
+      const groups = {};
+      features.forEach(feature => {
+        const props = feature.properties;
+        if (props[field] === null || props[field] === undefined) return;
+        const key = normalizeAddress(addressFn(props));
+        if (!key) return;
+        if (!groups[key]) {
+          groups[key] = feature;
+        } else {
+          const currentVal = groups[key].properties[field];
+          const newVal = props[field];
+          if (mode === 'max' ? newVal > currentVal : newVal < currentVal) {
+            groups[key] = feature;
+          }
+        }
+      });
+      return Object.values(groups);
+    }
+
+    // =====================================================
+    // Top 5 bar chart
+    // =====================================================
+    function renderTopBarChart(containerId, features, field, labelFn) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const validFeatures = features.filter(f =>
+        f.properties[field] !== null && f.properties[field] !== undefined
+      );
+
+      const top5 = [...validFeatures]
+        .sort((a, b) => b.properties[field] - a.properties[field])
+        .slice(0, 5);
+
+      if (top5.length === 0) {
+        container.innerHTML = '<p><em>No eligible sites.</em></p>';
+        return;
+      }
+
+      const maxVal = top5[0].properties[field];
+
+      container.innerHTML = '';
+      top5.forEach(feature => {
+        const props = feature.properties;
+        const value = props[field];
+        const percent = maxVal > 0 ? (value / maxVal) * 100 : 0;
+        const label = labelFn(props);
+
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        row.innerHTML = `
+          <div class="bar-label">${label}</div>
+          <div class="bar-container">
+            <div class="bar-fill" style="width: ${percent}%"></div>
+          </div>
+          <div class="bar-value">${value.toFixed(2)}</div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // =====================================================
+    // Map: state and setup (the rest of the page works even if the map cannot load)
+    // =====================================================
+    const mapAvailable = (typeof L !== 'undefined');
+    let map = null;
+    let mapLayers = { parcels: null, buildings: null, busstops: null, context: null, combined: null };
+    let mapScale = { min: 0, max: 1, hasNA: false };
+    let topKeys = new Set();
+    let activeMapScore = 'VegShade_Score';
+    let mapFitted = false;
+
+    // Basemap: paste your free CARTO key between the quotes (get one at carto.com/basemaps/apikey).
+    // If this is left empty, the map uses OpenStreetMap tiles instead, muted to gray so the score colors stand out.
+    const CARTO_KEY = '';
+
+    function addBasemap() {
+      let tiles;
+      if (CARTO_KEY) {
+        tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=' + CARTO_KEY, {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 19
+        });
+        tiles.addTo(map);
+      } else {
+        tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        });
+        tiles.addTo(map);
+        tiles.getContainer().style.filter = 'grayscale(100%) brightness(1.06) contrast(0.9)';
+      }
+    }
+
+    function initMap() {
+      const mapDiv = document.getElementById('map');
+      if (!mapAvailable) {
+        mapDiv.innerHTML = '<p class="map-unavailable">The map could not load. Check your internet connection and refresh the page. Everything else on this page still works.</p>';
+        return;
+      }
+      map = L.map('map').setView([38.8075, -77.0825], 16);
+      addBasemap();
+      window.addEventListener('resize', () => map.invalidateSize());
+    }
+
+      const COMBINED_MAP_KEY = '__COMBINED__';
+
+    function buildMapSelector() {
+      const select = document.getElementById('mapScoreSelect');
+
+      const overviewGroup = document.createElement('optgroup');
+      overviewGroup.label = 'Overview';
+      const overviewOption = document.createElement('option');
+      overviewOption.value = COMBINED_MAP_KEY;
+      overviewOption.textContent = 'All Priority Sites (2+ interventions)';
+      overviewGroup.appendChild(overviewOption);
+      select.appendChild(overviewGroup);
+
+      const groups = [['parcels', 'Parcels'], ['buildings', 'Buildings'], ['busstops', 'Bus stops']];
+      groups.forEach(([groupKey, title]) => {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = title;
+        Object.entries(MAP_SCORES)
+          .filter(([key, info]) => info.group === groupKey)
+          .forEach(([key, info]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = info.label;
+            optGroup.appendChild(option);
+          });
+        select.appendChild(optGroup);
+      });
+      select.value = activeMapScore;
+      select.addEventListener('change', () => setActiveMapScore(select.value, true));
+    }
+
+    function setActiveMapScore(field, doUpdate) {
+      activeMapScore = field;
+      const select = document.getElementById('mapScoreSelect');
+      if (select) select.value = field;
+      if (doUpdate) updateMap();
+    }
+
+    // Called when a slider moves: point the map at that score.
+    // (Green Roof shares the Cool Roof weights, so keep showing Green Roof if it is already selected.)
+    function focusMapOn(scoreField) {
+      if (scoreField === 'Roof_Score' && activeMapScore === 'GreenRoof_Score') return;
+      setActiveMapScore(scoreField, false);
+    }
+
+    function hexToRgb(hex) {
+      return [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16));
+    }
+
+    function scaleColor(value, ramp) {
+      const range = mapScale.max - mapScale.min;
+      let t = range > 0 ? (value - mapScale.min) / range : 1;
+      t = Math.max(0, Math.min(1, t));
+      const seg = t * (ramp.length - 1);
+      const i = Math.min(Math.floor(seg), ramp.length - 2);
+      const f = seg - i;
+      const a = hexToRgb(ramp[i]);
+      const b = hexToRgb(ramp[i + 1]);
+      const rgb = a.map((x, k) => Math.round(x + (b[k] - x) * f));
+      return 'rgb(' + rgb.join(',') + ')';
+    }
+
+    function isNAValue(field, value) {
+      if (value === null || value === undefined) return true;
+      return !!(MAP_SCORES[field].zeroIsNA && value === 0);
+    }
+
+    function siteKey(group, props) {
+      if (group === 'parcels') return props.ParcelID;
+      if (group === 'buildings') return props.BuilidngID;
+      return props.StopID;
+    }
+
+    function computeMapScale(field, features) {
+      const values = features
+        .map(f => f.properties[field])
+        .filter(v => !isNAValue(field, v));
+      if (values.length === 0) return { min: 0, max: 1, hasNA: true };
+      return {
+        min: Math.min(...values),
+        max: Math.max(...values),
+        hasNA: values.length < features.length
+      };
+    }
+
+    function computeTopKeys(field, info) {
+      let features;
+      if (info.group === 'parcels') {
+        features = parcelsData;
+      } else if (info.group === 'buildings') {
+        features = consolidateByAddress(buildingsData, field, p => formatAddress(p), 'max');
+      } else {
+        features = busStopsData;
+      }
+      const valid = features.filter(f => !isNAValue(field, f.properties[field]));
+      const top5 = [...valid]
+        .sort((a, b) => b.properties[field] - a.properties[field])
+        .slice(0, 5);
+      return new Set(top5.map(f => siteKey(info.group, f.properties)));
+    }
+
+    function featureStyle(group, feature) {
+      const props = feature.properties;
+      const info = MAP_SCORES[activeMapScore];
+      const value = props[activeMapScore];
+      const isTop = topKeys.has(siteKey(group, props));
+      const fill = isNAValue(activeMapScore, value) ? NA_COLOR : scaleColor(value, info.ramp);
+      return {
+        fillColor: fill,
+        fillOpacity: 0.85,
+        color: isTop ? '#000000' : '#5D6D7E',
+        weight: isTop ? 3 : 0.8,
+        opacity: 1,
+        radius: 9
+      };
+    }
+
+    function popupHtml(group, feature) {
+      const p = feature.properties;
+      const info = MAP_SCORES[activeMapScore];
+      const scoreLine = `${info.label}: <strong>${formatScore(p[activeMapScore])}</strong>`;
+      if (group === 'parcels') {
+        return `<strong>${p.ADDRESS_GI}</strong><br>${p.Ownership}<br>${scoreLine}`;
+      }
+      if (group === 'buildings') {
+        return `<strong>${formatAddress(p)}</strong><br>${p.Ownership_norm === 1 ? 'Public' : 'Private'}, ${Math.round(p.Footprint_SqFt).toLocaleString()} sq ft<br>${scoreLine}`;
+      }
+      return `<strong>${p.StopName}</strong><br>${p.AvgDailyBoardings.toFixed(1)} average daily boardings<br>${scoreLine}`;
+    }
+
+    function buildMapLayer(group, features) {
+      if (!mapAvailable || !map) return;
+      if (mapLayers[group]) map.removeLayer(mapLayers[group]);
+
+      mapLayers[group] = L.geoJSON(features, {
+        style: f => featureStyle(group, f),
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 9 }),
+        onEachFeature: (f, layer) => layer.bindPopup(() => popupHtml(group, f))
+      });
+
+      if (group === 'parcels') {
+        // Light parcel outlines, shown underneath the buildings and bus stop views for context
+        mapLayers.context = L.geoJSON(features, {
+          style: { color: '#95A5A6', weight: 1, fill: false, opacity: 0.7 },
+          interactive: false
+        });
+        if (!mapFitted) {
+          map.invalidateSize();
+          map.fitBounds(mapLayers.parcels.getBounds());
+          mapFitted = true;
+        }
+      }
+    }
+
+    function updateLegend(info, scale) {
+      const el = document.getElementById('mapLegend');
+      if (!el) return;
+      const gradient = 'linear-gradient(to right, ' + info.ramp.join(', ') + ')';
+      let html = `
+        <div class="legend-title">${info.label}</div>
+        <div class="legend-bar" style="background: ${gradient}"></div>
+        <div class="legend-labels"><span>${scale.min.toFixed(2)} (lower)</span><span>${scale.max.toFixed(2)} (higher)</span></div>
+        <div>`;
+      if (scale.hasNA) {
+        html += `<span class="legend-swatch" style="background: ${NA_COLOR}"></span>${info.naLabel}`;
+      }
+      html += `<span class="legend-swatch legend-top"></span>Top 5</div>`;
+      el.innerHTML = html;
+    }
+
+    function updateMap() {
+      if (!mapAvailable || !map) return;
+      if (activeMapScore === COMBINED_MAP_KEY) {
+        updateCombinedMap();
+        return;
+      }
+      if (mapLayers.combined && map.hasLayer(mapLayers.combined)) map.removeLayer(mapLayers.combined);
+
+      const info = MAP_SCORES[activeMapScore];
+      const group = info.group;
+
+      // Show only the active group's layer
+      ['parcels', 'buildings', 'busstops'].forEach(g => {
+        const l = mapLayers[g];
+        if (l && g !== group && map.hasLayer(l)) map.removeLayer(l);
+      });
+
+      // Parcel outlines for context, except when the parcels themselves are shown
+      if (mapLayers.context) {
+        if (group === 'parcels') {
+          if (map.hasLayer(mapLayers.context)) map.removeLayer(mapLayers.context);
+        } else if (!map.hasLayer(mapLayers.context)) {
+          mapLayers.context.addTo(map);
+        }
+      }
+
+      const layer = mapLayers[group];
+      if (!layer) return;
+      if (!map.hasLayer(layer)) layer.addTo(map);
+
+      let features;
+      if (group === 'parcels') features = parcelsData;
+      else if (group === 'buildings') features = buildingsData;
+      else features = busStopsData;
+
+      mapScale = computeMapScale(activeMapScore, features);
+      topKeys = computeTopKeys(activeMapScore, info);
+
+      layer.setStyle(f => featureStyle(group, f));
+      layer.eachLayer(l => {
+        if (topKeys.has(siteKey(group, l.feature.properties)) && l.bringToFront) l.bringToFront();
+      });
+      if (mapLayers.context) mapLayers.context.bringToBack();
+
+      updateLegend(info, mapScale);
+    }
+    // Address key for a feature, matching the same logic used to build combinedSites:
+    // a parcel's own address field, or a building's linked/derived address.
+    function addressKeyFor(props) {
+      const raw = ('ParcelID' in props) ? props.ADDRESS_GI : formatAddress(props);
+      return normalizeAddress(raw);
+    }
+
+    function hitsForFeature(props) {
+      const entry = combinedSites[addressKeyFor(props)];
+      return entry ? [...new Set(entry.hits)] : [];
+    }
+
+    // Overview map: parcels and buildings together, colored by how many top-5 lists each site
+    // appears on (the same count shown in the Combined Priority Sites summary at the top of the page).
+    function updateCombinedMap() {
+      ['parcels', 'buildings', 'busstops'].forEach(g => {
+        const l = mapLayers[g];
+        if (l && map.hasLayer(l)) map.removeLayer(l);
+      });
+      if (mapLayers.context && map.hasLayer(mapLayers.context)) map.removeLayer(mapLayers.context);
+
+      const combinedFeatures = parcelsData.concat(buildingsData);
+      const counts = combinedFeatures.map(f => hitsForFeature(f.properties).length).filter(n => n > 1);
+      const maxCount = counts.length ? Math.max(...counts) : 2;
+      mapScale = { min: 2, max: maxCount, hasNA: true };
+
+      if (mapLayers.combined) map.removeLayer(mapLayers.combined);
+      mapLayers.combined = L.geoJSON(combinedFeatures, {
+        style: f => {
+          const hits = hitsForFeature(f.properties);
+          if (hits.length > 1) {
+            return {
+              fillColor: scaleColor(hits.length, RAMPS.warm),
+              fillOpacity: 0.85,
+              color: hits.length === maxCount ? '#000000' : '#5D6D7E',
+              weight: hits.length === maxCount ? 3 : 0.8,
+              opacity: 1
+            };
+          }
+               return { fillColor: NA_COLOR, fillOpacity: 0.85, color: '#5D6D7E', weight: 0.8, opacity: 1 };
+        },
+        onEachFeature: (f, layer) => layer.bindPopup(() => {
+          const hits = hitsForFeature(f.properties);
+          const label = ('ParcelID' in f.properties) ? f.properties.ADDRESS_GI : formatAddress(f.properties);
+          if (hits.length > 1) {
+            return `<strong>${label}</strong><br>${hits.length} interventions:<br>${hits.join(', ')}`;
+          }
+          return `<strong>${label}</strong><br>Not currently a multi-intervention priority site`;
+        })
+      }).addTo(map);
+
+      mapLayers.combined.eachLayer(l => {
+        if (hitsForFeature(l.feature.properties).length > 1 && l.bringToFront) l.bringToFront();
+      });
+
+      updateLegend({ label: 'All Priority Sites (2+ interventions)', ramp: RAMPS.warm, naLabel: 'Fewer than 2 interventions' }, mapScale);
+    }
+    // =====================================================
+    // Weights: state, sliders, and score recalculation
+    // =====================================================
+    const weightState = {};
+
+    function initWeightState() {
+      Object.values(MODELS).forEach(group => {
+        Object.entries(group).forEach(([scoreField, model]) => {
+          weightState[scoreField] = {};
+          Object.entries(model.defaults).forEach(([input, w]) => {
+            weightState[scoreField][input] = Math.round(w * 100);
+          });
+        });
+      });
+    }
+
+    // Rescales the slider values so shares add up to 100%, while keeping the
+    // same overall scale as the ArcGIS scores (sum of the default weights).
+    function effectiveWeights(scoreField, model) {
+      const raw = weightState[scoreField];
+      const sumRaw = Object.values(raw).reduce((a, b) => a + b, 0);
+      const sumDefaults = Object.values(model.defaults).reduce((a, b) => a + b, 0);
+      const eff = {};
+      Object.keys(raw).forEach(k => {
+        eff[k] = sumRaw > 0 ? (raw[k] / sumRaw) * sumDefaults : 0;
+      });
+      return eff;
+    }
+
+    function weightedScore(props, eff) {
+      let total = 0;
+      for (const k in eff) {
+        const v = props[k];
+        if (v === null || v === undefined) return null;
+        total += eff[k] * v;
+      }
+      return total;
+    }
+
+    function updateWeightLabels(scoreField) {
+      const raw = weightState[scoreField];
+      const sumRaw = Object.values(raw).reduce((a, b) => a + b, 0);
+      Object.keys(raw).forEach(input => {
+        const el = document.getElementById(`pct_${scoreField}_${input}`);
+        if (el) {
+          el.textContent = sumRaw > 0 ? Math.round((raw[input] / sumRaw) * 100) + '%' : '0%';
+        }
+      });
+    }
+
+    function buildWeightPanel(scoreField, group, model) {
+      const container = document.getElementById(model.panelId);
+      if (!container) return;
+
+      const panel = document.createElement('div');
+      panel.className = 'weight-panel';
+
+      Object.keys(model.defaults).forEach(input => {
+        const row = document.createElement('div');
+        row.className = 'weight-row';
+        row.innerHTML = `
+          <div class="weight-name">${INPUT_LABELS[input]}<span class="weight-driver">${DRIVER_NOTES[input]}</span></div>
+          <input type="range" min="0" max="100" step="1" value="${weightState[scoreField][input]}" id="slider_${scoreField}_${input}">
+          <div class="weight-pct" id="pct_${scoreField}_${input}"></div>
+        `;
+        panel.appendChild(row);
+      });
+
+      if (model.note) {
+        const note = document.createElement('p');
+        note.className = 'weight-note';
+        note.textContent = model.note;
+        panel.appendChild(note);
+      }
+
+      const resetBtn = document.createElement('button');
+      resetBtn.className = 'reset-btn';
+      resetBtn.textContent = 'Reset to AHP defaults';
+      resetBtn.onclick = () => {
+        focusMapOn(scoreField);
+        resetWeights(scoreField, group, true);
+      };
+      panel.appendChild(resetBtn);
+
+      container.appendChild(panel);
+
+      Object.keys(model.defaults).forEach(input => {
+        const slider = document.getElementById(`slider_${scoreField}_${input}`);
+        slider.addEventListener('input', () => {
+          weightState[scoreField][input] = Number(slider.value);
+          updateWeightLabels(scoreField);
+          focusMapOn(scoreField);
+          REFRESHERS[group]();
+        });
+      });
+
+      updateWeightLabels(scoreField);
+    }
+
+    function buildAllWeightPanels() {
+      Object.entries(MODELS).forEach(([group, models]) => {
+        Object.entries(models).forEach(([scoreField, model]) => {
+          buildWeightPanel(scoreField, group, model);
+        });
+      });
+    }
+
+    function resetWeights(scoreField, group, doRefresh) {
+      const model = MODELS[group][scoreField];
+      Object.keys(model.defaults).forEach(input => {
+        weightState[scoreField][input] = Math.round(model.defaults[input] * 100);
+        const slider = document.getElementById(`slider_${scoreField}_${input}`);
+        if (slider) slider.value = weightState[scoreField][input];
+      });
+      updateWeightLabels(scoreField);
+      if (doRefresh) REFRESHERS[group]();
+    }
+
+    function resetAllWeights() {
+      Object.keys(MODELS).forEach(group => {
+        Object.keys(MODELS[group]).forEach(scoreField => resetWeights(scoreField, group, false));
+        REFRESHERS[group]();
+      });
+    }
+
+    function saveOriginals(features, fields) {
+      features.forEach(f => {
+        fields.forEach(field => { f.properties['_orig_' + field] = f.properties[field]; });
+      });
+    }
+
+    function verifyAgainstOriginals(label, features, fields) {
+      fields.forEach(field => {
+        let maxDiff = 0;
+        let mismatches = 0;
+        features.forEach(f => {
+          const now = f.properties[field];
+          const orig = f.properties['_orig_' + field];
+          const nowNull = (now === null || now === undefined);
+          const origNull = (orig === null || orig === undefined);
+          if (nowNull || origNull) {
+            if (nowNull !== origNull) mismatches++;
+            return;
+          }
+          const diff = Math.abs(now - orig);
+          if (diff > maxDiff) maxDiff = diff;
+          if (diff > 1e-6) mismatches++;
+        });
+        console.log(`Formula check (${label}, ${field}): max difference ${maxDiff.toExponential(2)}, mismatches ${mismatches}`);
+      });
+    }
+
+    // =====================================================
+    // Combined multi-score summary (address-matched)
+    // =====================================================
+    let combinedSites = {};
+
+    function addTopHitsToCombined(features, fields, fieldLabels, addressFn) {
+      fields.forEach(field => {
+        const validFeatures = features.filter(f =>
+          f.properties[field] !== null && f.properties[field] !== undefined
+        );
+        const top5 = [...validFeatures]
+          .sort((a, b) => b.properties[field] - a.properties[field])
+          .slice(0, 5);
+
+        top5.forEach(feature => {
+          const props = feature.properties;
+          const rawAddress = addressFn(props);
+          const key = normalizeAddress(rawAddress);
+          if (!key) return;
+
+          if (!combinedSites[key]) {
+            combinedSites[key] = { label: rawAddress, hits: [] };
+          }
+          combinedSites[key].hits.push(fieldLabels[field]);
+        });
+      });
+    }
+
+    function renderCombined() {
+      const multiSites = Object.values(combinedSites)
+        .map(site => ({ label: site.label, hits: [...new Set(site.hits)] }))
+        .filter(site => site.hits.length > 1)
+        .sort((a, b) => b.hits.length - a.hits.length);
+
+      const container = document.getElementById('multiScore_Combined');
+      if (multiSites.length === 0) {
+        container.innerHTML = '<p><em>No sites appear in more than one top-5 list.</em></p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      multiSites.forEach(site => {
+        const row = document.createElement('div');
+        row.className = 'multi-score-row';
+        row.innerHTML = `
+          <span class="multi-score-count">${site.hits.length} interventions</span>:
+          <strong>${site.label}</strong><br>
+          ${site.hits.join(', ')}
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function rebuildCombined() {
+      if (!parcelsData.length || !buildingsData.length) return;
+      combinedSites = {};
+      addTopHitsToCombined(parcelsData, PARCEL_SCORE_FIELDS, parcelFieldLabels, p => p.ADDRESS_GI);
+      BUILDING_SCORE_FIELDS.forEach(field => {
+        const consolidated = consolidateByAddress(buildingsData, field, p => formatAddress(p), 'max');
+        addTopHitsToCombined(consolidated, [field], buildingFieldLabels, p => formatAddress(p));
+      });
+      renderCombined();
+    }
+    // Clipping artifacts from the ArcGIS corridor cut: tiny sliver parcels with no real area, excluded by ID.
+    const EXCLUDED_PARCEL_IDS = [38827];
+    // =====================================================
+    // Parcels
+    // =====================================================
+    let parcelsData = [];
+    let parcelMaxValues = {};
+    let parcelSort = { field: null, ascending: true };
+
+    function recomputeParcelScores() {
+      Object.entries(MODELS.parcels).forEach(([field, model]) => {
+        const eff = effectiveWeights(field, model);
+        parcelsData.forEach(f => {
+          f.properties[field] = weightedScore(f.properties, eff);
+        });
+      });
+    }
+
+    function renderParcels(features) {
+      const tableBody = document.getElementById('parcelsBody');
+      tableBody.innerHTML = '';
+      features.forEach(feature => {
+        const props = feature.properties;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${props.ADDRESS_GI}</td>
+          <td>${props.Ownership}</td>
+          ${scoreCell(props.VegShade_Score, parcelMaxValues.VegShade_Score)}
+          ${scoreCell(props.SurfacePavement_Score, parcelMaxValues.SurfacePavement_Score)}
+          ${scoreCell(props.Stormwater_Score, parcelMaxValues.Stormwater_Score)}
+          ${scoreCell(props.CanopyNeed_Score, parcelMaxValues.CanopyNeed_Score)}
+          ${scoreCell(props.BuiltUpNeed_Score, parcelMaxValues.BuiltUpNeed_Score)}
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function renderParcelsSorted() {
+      const data = parcelSort.field
+        ? [...parcelsData].sort(compareBy(parcelSort.field, parcelSort.ascending))
+        : parcelsData;
+      renderParcels(data);
+    }
+
+      function renderParcelCharts() {
+      Object.entries(PARCEL_CHARTS).forEach(([field, chartId]) => {
+        // Two distinct parcels can legitimately share one address (a multi-lot facility);
+        // keep only the higher-scoring one so it is not shown twice in a top 5 list.
+        const consolidated = consolidateByAddress(parcelsData, field, p => p.ADDRESS_GI, 'max');
+        renderTopBarChart(chartId, consolidated, field, p => p.ADDRESS_GI);
+      });
+    }
+
+    function refreshParcelViews() {
+      if (!parcelsData.length) return;
+      recomputeParcelScores();
+      parcelMaxValues = computeMaxes(parcelsData, PARCEL_SCORE_FIELDS);
+      renderParcelsSorted();
+      renderParcelCharts();
+      rebuildCombined();
+      updateMap();
+    }
+
+    const parcelFields = ['Ownership', 'VegShade_Score', 'SurfacePavement_Score', 'Stormwater_Score', 'CanopyNeed_Score', 'BuiltUpNeed_Score'];
+
+    function sortParcels(columnIndex) {
+      const field = parcelFields[columnIndex - 1];
+      parcelSort.ascending = (parcelSort.field === field) ? !parcelSort.ascending : true;
+      parcelSort.field = field;
+      renderParcelsSorted();
+    }
+
+    // =====================================================
+    // Buildings
+    // =====================================================
+    let buildingsData = [];
+    let buildingMaxValues = {};
+    let buildingSort = { field: null, ascending: true };
+
+    function recomputeBuildingScores() {
+      const roofEff = effectiveWeights('Roof_Score', MODELS.buildings.Roof_Score);
+      const evapEff = effectiveWeights('EvapCoolingWall_Score', MODELS.buildings.EvapCoolingWall_Score);
+
+      buildingsData.forEach(f => {
+        const p = f.properties;
+
+        const roof = weightedScore(p, roofEff);
+        p.Roof_Score = roof;
+        p.GreenRoof_Score = (roof !== null && p.Footprint_SqFt > 5000)
+          ? roof * (p.Slope_Multiplier || 0)
+          : 0;
+
+        const base = weightedScore(p, evapEff);
+        if (base === null) {
+          p.EvapCoolingWall_Score = null;
+        } else {
+          const favorable = String(p.MAX_Favors_EvapCooling) === '1';
+          p.EvapCoolingWall_Score = base * (favorable ? 1.0 : 0.6);
+        }
+      });
+    }
+
+    function renderBuildings(features) {
+      const tableBody = document.getElementById('buildingsBody');
+      tableBody.innerHTML = '';
+      features.forEach(feature => {
+        const props = feature.properties;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${formatAddress(props)}</td>
+          <td>${props.Ownership_norm === 1 ? 'Public' : 'Private'}</td>
+          ${scoreCell(props.Roof_Score, buildingMaxValues.Roof_Score)}
+          ${scoreCell(props.GreenRoof_Score, buildingMaxValues.GreenRoof_Score)}
+          ${scoreCell(props.EvapCoolingWall_Score, buildingMaxValues.EvapCoolingWall_Score)}
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function renderBuildingsSorted() {
+      const data = buildingSort.field
+        ? [...buildingsData].sort(compareBy(buildingSort.field, buildingSort.ascending))
+        : buildingsData;
+      renderBuildings(data);
+    }
+
+    function renderBuildingCharts() {
+      Object.entries(BUILDING_CHARTS).forEach(([field, chartId]) => {
+        const consolidated = consolidateByAddress(buildingsData, field, p => formatAddress(p), 'max');
+        renderTopBarChart(chartId, consolidated, field, p => formatAddress(p));
+      });
+    }
+
+    function refreshBuildingViews() {
+      if (!buildingsData.length) return;
+      recomputeBuildingScores();
+      buildingMaxValues = computeMaxes(buildingsData, BUILDING_SCORE_FIELDS);
+      renderBuildingsSorted();
+      renderBuildingCharts();
+      rebuildCombined();
+      updateMap();
+    }
+
+    const buildingFields = ['Ownership_norm', 'Roof_Score', 'GreenRoof_Score', 'EvapCoolingWall_Score'];
+
+    function sortBuildings(columnIndex) {
+      const field = buildingFields[columnIndex - 1];
+      buildingSort.ascending = (buildingSort.field === field) ? !buildingSort.ascending : true;
+      buildingSort.field = field;
+      renderBuildingsSorted();
+    }
+
+    // =====================================================
+    // Bus Stops (no adjustable weights)
+    // =====================================================
+    let busStopsData = [];
+    let busStopMaxValues = {};
+    let busStopSort = { field: null, ascending: true };
+
+    function renderBusStops(features) {
+      const tableBody = document.getElementById('busStopsBody');
+      tableBody.innerHTML = '';
+      features.forEach(feature => {
+        const props = feature.properties;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${props.StopName}</td>
+          <td>${props.CrossStree}</td>
+          <td>${props.AvgDailyBoardings.toFixed(1)}</td>
+          <td>${props.BusStop_Eligible === 1 ? 'Yes' : 'No'}</td>
+          ${scoreCell(props.BusStop_Score, busStopMaxValues.BusStop_Score)}
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function renderBusStopsSorted() {
+      const data = busStopSort.field
+        ? [...busStopsData].sort(compareBy(busStopSort.field, busStopSort.ascending))
+        : busStopsData;
+      renderBusStops(data);
+    }
+
+    const busStopFields = ['AvgDailyBoardings', 'BusStop_Eligible', 'BusStop_Score'];
+
+    function sortBusStops(columnIndex) {
+      const field = busStopFields[columnIndex - 1];
+      busStopSort.ascending = (busStopSort.field === field) ? !busStopSort.ascending : true;
+      busStopSort.field = field;
+      renderBusStopsSorted();
+    }
+
+    // =====================================================
+    // Linking buildings to parcels by location
+    // A building takes the address of the parcel that contains its center point.
+    // (The address copied during the GIS join can belong to a neighboring parcel when a building straddles a lot line.)
+    // =====================================================
+    function pointInRing(x, y, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1];
+        const xj = ring[j][0], yj = ring[j][1];
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    }
+
+    function polygonsOf(geometry) {
+      if (!geometry) return [];
+      if (geometry.type === 'Polygon') return [geometry.coordinates];
+      if (geometry.type === 'MultiPolygon') return geometry.coordinates;
+      return [];
+    }
+
+    function pointInGeometry(x, y, geometry) {
+      return polygonsOf(geometry).some(rings =>
+        pointInRing(x, y, rings[0]) && !rings.slice(1).some(hole => pointInRing(x, y, hole))
+      );
+    }
+
+    // Signed area and centroid of a ring, measured from its first point to avoid rounding problems
+    function ringStats(ring) {
+      const x0 = ring[0][0], y0 = ring[0][1];
+      let area2 = 0, cx = 0, cy = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xj = ring[j][0] - x0, yj = ring[j][1] - y0;
+        const xi = ring[i][0] - x0, yi = ring[i][1] - y0;
+        const cross = xj * yi - xi * yj;
+        area2 += cross;
+        cx += (xj + xi) * cross;
+        cy += (yj + yi) * cross;
+      }
+      if (area2 === 0) {
+        const n = ring.length;
+        return {
+          area: 0,
+          cx: ring.reduce((a, pt) => a + pt[0], 0) / n,
+          cy: ring.reduce((a, pt) => a + pt[1], 0) / n
+        };
+      }
+      return { area: Math.abs(area2 / 2), cx: x0 + cx / (3 * area2), cy: y0 + cy / (3 * area2) };
+    }
+
+    function largestOuterRing(geometry) {
+      let best = null, bestArea = -1;
+      polygonsOf(geometry).forEach(rings => {
+        const area = ringStats(rings[0]).area;
+        if (area > bestArea) { best = rings[0]; bestArea = area; }
+      });
+      return best;
+    }
+
+    function findParcelForBuilding(building, parcels) {
+      const ring = largestOuterRing(building.geometry);
+      if (!ring) return null;
+      const center = ringStats(ring);
+
+      for (const parcel of parcels) {
+        if (pointInGeometry(center.cx, center.cy, parcel.geometry)) return parcel;
+      }
+
+      // The center falls outside every parcel (for example in a street or a gap): let the corner points vote
+      let best = null, bestVotes = 0;
+      parcels.forEach(parcel => {
+        let votes = 0;
+        ring.forEach(pt => { if (pointInGeometry(pt[0], pt[1], parcel.geometry)) votes++; });
+        if (votes > bestVotes) { best = parcel; bestVotes = votes; }
+      });
+      return best;
+    }
+
+    let buildingsLinked = false;
+
+    function tryLinkBuildings() {
+      if (buildingsLinked || !parcelsData.length || !buildingsData.length) return;
+      buildingsLinked = true;
+
+      let linked = 0;
+      buildingsData.forEach(b => {
+        const parcel = findParcelForBuilding(b, parcelsData);
+        if (parcel && parcel.properties.ADDRESS_GI) {
+          b.properties._siteAddress = parcel.properties.ADDRESS_GI.trim().replace(/\s+/g, ' ');
+          b.properties._siteParcelID = parcel.properties.ParcelID;
+          linked++;
+        }
+      });
+      console.log(`Building-to-parcel link: ${linked} of ${buildingsData.length} buildings matched to a parcel by location`);
+
+      refreshBuildingViews();
+    }
+
+    // =====================================================
+    // Refresh routing and startup
+    // =====================================================
+    const REFRESHERS = {
+      parcels: refreshParcelViews,
+      buildings: refreshBuildingViews
+    };
+
+    initWeightState();
+    buildAllWeightPanels();
+    buildMapSelector();
+    initMap();
+
+    fetch('data/parcels_scored.geojson')
+      .then(response => response.json())
+      .then(data => {
+        parcelsData = data.features.filter(f => !EXCLUDED_PARCEL_IDS.includes(f.properties.ParcelID));
+        saveOriginals(parcelsData, PARCEL_SCORE_FIELDS);
+        buildMapLayer('parcels', parcelsData);
+        refreshParcelViews();
+        verifyAgainstOriginals('parcels', parcelsData, PARCEL_SCORE_FIELDS);
+        tryLinkBuildings();
+      })
+      .catch(error => console.error('Error loading parcels:', error));
+
+    fetch('data/buildings_scored.geojson')
+      .then(response => response.json())
+      .then(data => {
+        buildingsData = data.features;
+        saveOriginals(buildingsData, BUILDING_SCORE_FIELDS);
+        buildMapLayer('buildings', buildingsData);
+        refreshBuildingViews();
+        verifyAgainstOriginals('buildings', buildingsData, BUILDING_SCORE_FIELDS);
+        tryLinkBuildings();
+      })
+      .catch(error => console.error('Error loading buildings:', error));
+
+    fetch('data/busstops_scored.geojson')
+      .then(response => response.json())
+      .then(data => {
+        busStopsData = data.features;
+        busStopMaxValues = computeMaxes(busStopsData, ['BusStop_Score']);
+        renderBusStopsSorted();
+        renderTopBarChart('chart_BusStop', busStopsData, 'BusStop_Score', p => p.StopName);
+        buildMapLayer('busstops', busStopsData);
+        updateMap();
+      })
+      .catch(error => console.error('Error loading bus stops:', error));
+  </script>
+</body>
+</html>
